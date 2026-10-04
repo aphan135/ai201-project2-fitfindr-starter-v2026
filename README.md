@@ -242,6 +242,30 @@ caption attempts therefore do not establish whether model captions vary. In
 `config.py`, `CACHE_ENABLED` is on and `TEMPERATURE` is `0.9`; rerun the three
 attempts after fixing the key to evaluate the caption output.
 
+**Session handoff and empty-search checks**
+
+The happy-path run used fixed local responses for the two model-backed tools,
+printed the complete session with `pprint(session)`, and checked object identity
+at the outfit-tool boundary:
+
+```text
+suggest_outfit received the exact selected item: True
+selected_item: lst_002 — Y2K Baby Tee — Butterfly Print
+outfit_suggestion: Pair it with dark jeans and white sneakers.
+fit_card: A vintage tee styled for an easy weekend.
+error: None
+```
+
+For `designer ballgown size XXS`, local search returned `[]`; the loop did not
+call the model-backed tools:
+
+```text
+error: No listings matched that request. Try a broader item description, a size from the listings, or a higher price ceiling.
+selected_item: None
+outfit_suggestion: None
+fit_card: None
+```
+
 ---
 
 ## How I Used AI
