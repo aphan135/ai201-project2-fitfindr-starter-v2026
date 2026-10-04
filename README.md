@@ -217,22 +217,30 @@ responses; it verifies local control flow, not live model quality.
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; results=search_listings('graphic tee', max_price=30); print([(x['id'], x['title'], x['price']) for x in results[:3]])"
-[('lst_002', 'Y2K Baby Tee — Butterfly Print', 18.0), ('lst_006', 'Graphic Tee — 2003 Tour Bootleg Style', 24.0), ('lst_017', 'Mesh Long-Sleeve Top — Black', 15.0)]
+$ python -c "from tools import search_listings; print(search_listings('90s track jacket', size='M', max_price=50)[0])"
+{'id': 'lst_004', 'title': '90s Track Jacket — Navy/White Stripe', 'description': 'Authentic 90s track jacket with stripe detail down the sleeves. Full zip. Lightweight — great for layering.', 'category': 'outerwear', 'style_tags': ['90s', 'vintage', 'athletic', 'streetwear'], 'size': 'M', 'condition': 'excellent', 'price': 45.0, 'colors': ['navy', 'white'], 'brand': 'Champion', 'platform': 'poshmark'}
 ```
 
-```text
-$ python -c "import tools; from utils.data_loader import get_empty_wardrobe; item=tools.search_listings('graphic tee', max_price=30)[0]; tools.generate=lambda *args, **kwargs: 'Mock outfit: style it with neutral basics and sneakers.'; print(tools.suggest_outfit(item, get_empty_wardrobe()))"
-Mock outfit: style it with neutral basics and sneakers.
+```
+$ python -c "from tools import search_listings, suggest_outfit; from utils.data_loader import get_empty_wardrobe; from generate import ModelUnavailable; item=search_listings('90s track jacket', size='M', max_price=50)[0]; exec('try:\n print(suggest_outfit(item, get_empty_wardrobe()))\nexcept ModelUnavailable as error:\n print(error)')"
+The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
 ```
 
-```text
-$ python -c "import tools; item=tools.search_listings('graphic tee', max_price=30)[0]; tools.generate=lambda *args, **kwargs: 'Mock caption: A graphic tee with a relaxed streetwear vibe. Paired with denim for an easy everyday fit.'; print(tools.create_fit_card('denim and sneakers', item))"
-Mock caption: A graphic tee with a relaxed streetwear vibe. Paired with denim for an easy everyday fit.
+```
+$ python -c "from tools import search_listings, create_fit_card; from generate import ModelUnavailable; item=search_listings('90s track jacket', size='M', max_price=50)[0]; outfit='Style it with black jeans and white sneakers.'; results=[]; exec('for attempt in range(3):\n try:\n  results.append(create_fit_card(outfit, item))\n except ModelUnavailable as error:\n  results.append(str(error))'); print('\\n---\\n'.join(results))"
+The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+---
+The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+---
+The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
 ```
 
-The outfit and caption checks also replace `generate()` with fixed responses;
-they verify each tool's input/output path without using API quota.
+The search command succeeds and shows the size and price filters in use. The
+outfit and caption commands call the real model adapter but cannot return model
+text until `GEMINI_API_KEY` in `.env` is replaced with a valid key. The three
+caption attempts therefore do not establish whether model captions vary. In
+`config.py`, `CACHE_ENABLED` is on and `TEMPERATURE` is `0.9`; rerun the three
+attempts after fixing the key to evaluate the caption output.
 
 ---
 
