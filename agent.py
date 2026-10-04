@@ -14,6 +14,7 @@ Build and test your three tools in `tools.py` first. Then come here.
 """
 
 import config
+import re
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
 from generate import ModelUnavailable
@@ -48,6 +49,37 @@ def new_session(query: str, wardrobe: dict) -> dict:
 
 
 # ── planning loop ─────────────────────────────────────────────────────────────
+
+def _parse_query(query: str) -> dict:
+    """Extract a description and optional size and price ceiling."""
+    remaining = query.strip()
+    size_match = re.search(
+        r"\bsize\s+(XXS|XXL|XS|XL|S|M|L|US\s*\d+(?:\.\d+)?|W\d+(?:\s+L\d+)?|\d+(?:\.\d+)?)\b",
+        remaining,
+        re.IGNORECASE,
+    )
+    size = re.sub(r"\s+", " ", size_match.group(1)).upper() if size_match else None
+    if size_match:
+        remaining = remaining[:size_match.start()] + " " + remaining[size_match.end():]
+
+    price_match = re.search(
+        r"\b(?:under|below|less than|at most|up to|max(?:imum)?)\s+\$?\s*(\d+(?:\.\d{1,2})?)\b",
+        remaining,
+        re.IGNORECASE,
+    )
+    max_price = float(price_match.group(1)) if price_match else None
+    if price_match:
+        remaining = remaining[:price_match.start()] + " " + remaining[price_match.end():]
+
+    description = re.sub(
+        r"\b(?:i am looking for|i'm looking for|looking for|show me|find me|i want|a|an|the|in)\b",
+        " ",
+        remaining,
+        flags=re.IGNORECASE,
+    )
+    description = re.sub(r"\s+", " ", description).strip(" ,.-")
+    return {"description": description or query.strip(), "size": size, "max_price": max_price}
+
 
 def run_agent(query: str, wardrobe: dict) -> dict:
     """
@@ -106,10 +138,41 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         than a stack trace. The import is already at the top of this file.
     """
     session = new_session(query, wardrobe)
+    stage = "search"
+    iterations = 0
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
-    return session
+    try:
+        while True:
+            iterations += 1
+            trace.check_iterations(iterations)
+
+            if stage == "search":
+                session["parsed"] = _parse_query(query)
+                session["search_results"] = search_listings(**session["parsed"])
+                if not session["search_results"]:
+                    session["error"] = (
+                        "No listings matched that request. Try a broader item description, "
+                        "a size from the listings, or a higher price ceiling."
+                    )
+                    return session
+                session["selected_item"] = session["search_results"][0]
+                stage = "outfit"
+                continue
+
+            if stage == "outfit":
+                session["outfit_suggestion"] = suggest_outfit(
+                    session["selected_item"], session["wardrobe"]
+                )
+                stage = "fit_card"
+                continue
+
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"]
+            )
+            return session
+    except ModelUnavailable as exc:
+        session["error"] = str(exc)
+        return session
 
 
 # ── running it directly ───────────────────────────────────────────────────────
