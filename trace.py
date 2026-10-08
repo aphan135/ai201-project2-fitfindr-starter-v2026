@@ -84,8 +84,8 @@ def _short(value, limit: int = 110) -> str:
     if isinstance(value, dict):
         if "title" in value:
             return f"{value.get('title')} (${value.get('price')}, {value.get('platform')})"
-        keys = ", ".join(list(value)[:6])
-        return f"dict with keys: {keys}"
+        text = str(value).replace("\n", " ")
+        return text if len(text) <= limit else text[:limit] + "…"
 
     text = str(value).replace("\n", " ")
     return text if len(text) <= limit else text[:limit] + "…"

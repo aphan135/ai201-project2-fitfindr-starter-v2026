@@ -375,14 +375,70 @@ that produced it:
 **Happy path**
 
 ```
-
+[1] search_listings (via MCP)
+      in:  {'description': 'vintage linen blazer', 'size': 'M', 'max_price': 40.0}
+      out: 9 items: Vintage Linen Blazer — Cream, Y2K Baby Tee — Butterfly Print, 90s Silk Slip Dress — Floral, Midi Length … +6 more
+      →    selected first result
+[2] suggest_outfit
+      in:  {'new_item': {'id': 'lst_018', 'title': 'Vintage Linen Blazer — Cream', 'description': 'Lightweight linen blaz…
+      out: **Outfit 1: High-Low Minimalist** *   **Top:** White ribbed tank top *   **Bottoms:** Wide-leg khaki trousers …
+[3] create_fit_card
+      in:  {'outfit': '**Outfit 1: High-Low Minimalist**\n*   **Top:** White ribbed tank top\n*   **Bottoms:** Wide-leg k…
+      out: There is nothing quite like the effortless texture of a well-loved layering piece for transitional weather. I …
 ```
 
 **Empty search**
 
 ```
+[1] search_listings (via MCP)
+      in:  {'description': 'designer ballgown', 'size': 'XXS', 'max_price': 5.0}
+      out: [] (empty)
+      →    empty results; stopping
+```
+
+**Failure-mode checks**
+
+Empty search, run by itself:
 
 ```
+$ python app.py ask 'designer ballgown size XXS under $5'
+No listings matched that request. Try a broader item description, a size from the listings, or a higher price ceiling.
+0 model calls this session
+```
+
+Empty wardrobe:
+
+```
+$ python app.py ask '90s track jacket in size M' --empty-wardrobe
+(running with an empty wardrobe)
+Found:    90s Track Jacket — Navy/White Stripe — $45.0 on poshmark
+Outfit:   **Look 1: Streetwear Casual**
+*   **Bottoms:** Medium-wash straight-leg denim jeans.
+*   **Footwear:** Classic white canvas low-top sneakers.
+*   **Accessories:** A plain white crewneck t-shirt (worn layered underneath, unzipped) and a silver chain necklace.
+
+**Look 2: Athletic Minimalist**
+*   **Bottoms:** Grey heather fleece sweatpants (jogger or straight-leg cut).
+*   **Footwear:** Retro-style running shoes (in white or grey).
+*   **Accessories:** A black baseball cap and a canvas tote bag.
+Fit card: Embrace effortless retro energy with this navy and white 90s Track Jacket, available now on poshmark for $45.0. It brings an instant cool-factor whether you're styling it with straight-leg denim for an easy daytime hangout or throwing it over fleece joggers for a coffee run. It’s the ultimate sporty layer your rotation has been missing.
+2 model calls this session, 333 prompt + 209 output tokens
+```
+
+The empty-wardrobe run returned two styling ideas using common pieces without
+claiming the user owns them; it did not crash or return an empty outfit.
+
+Model unavailable (one character of the `.env` key was temporarily changed;
+the original file was restored immediately afterwards). This new query reached
+the provider rather than the cache:
+
+```
+$ python app.py ask 'vintage linen blazer in size M'
+The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com.
+1 model calls this session
+```
+
+The agent reported the key failure with a recovery action and no stack trace.
 
 **On the MCP move:** <!-- what changed in your code, and whether anything
 behaved differently afterwards. If the rewire didn't work, say exactly where it

@@ -16,7 +16,8 @@ Build and test your three tools in `tools.py` first. Then come here.
 import config
 import re
 import trace
-from tools import search_listings, suggest_outfit, create_fit_card
+from mcp_client import call_tool
+from tools import search_listings, suggest_outfit, create_fit_card  # noqa: F401 — search_listings kept for direct-call comparison
 from generate import ModelUnavailable
 
 
@@ -148,7 +149,17 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
             if stage == "search":
                 session["parsed"] = _parse_query(query)
-                session["search_results"] = search_listings(**session["parsed"])
+                session["search_results"] = call_tool("search_listings", session["parsed"])
+                trace.step(
+                    "search_listings (via MCP)",
+                    inputs=session["parsed"],
+                    returned=session["search_results"],
+                    note=(
+                        "empty results; stopping"
+                        if not session["search_results"]
+                        else "selected first result"
+                    ),
+                )
                 if not session["search_results"]:
                     session["error"] = (
                         "No listings matched that request. Try a broader item description, "
@@ -163,15 +174,51 @@ def run_agent(query: str, wardrobe: dict) -> dict:
                 session["outfit_suggestion"] = suggest_outfit(
                     session["selected_item"], session["wardrobe"]
                 )
+                trace.step(
+                    "suggest_outfit",
+                    inputs={
+                        "new_item": session["selected_item"],
+                        "wardrobe": session["wardrobe"],
+                    },
+                    returned=session["outfit_suggestion"],
+                )
                 stage = "fit_card"
                 continue
 
             session["fit_card"] = create_fit_card(
                 session["outfit_suggestion"], session["selected_item"]
             )
+            trace.step(
+                "create_fit_card",
+                inputs={
+                    "outfit": session["outfit_suggestion"],
+                    "new_item": session["selected_item"],
+                },
+                returned=session["fit_card"],
+            )
             return session
     except ModelUnavailable as exc:
         session["error"] = str(exc)
+        if stage == "outfit":
+            trace.step(
+                "suggest_outfit",
+                inputs={
+                    "new_item": session["selected_item"],
+                    "wardrobe": session["wardrobe"],
+                },
+                returned=f"ModelUnavailable: {exc}",
+                note="model call failed",
+            )
+        elif stage == "fit_card":
+            trace.step(
+                "create_fit_card",
+                inputs={
+                    "outfit": session["outfit_suggestion"],
+                    "new_item": session["selected_item"],
+                },
+                returned=f"ModelUnavailable: {exc}",
+                note="model call failed",
+            )
         return session
 
 
