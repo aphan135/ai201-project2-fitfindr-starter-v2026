@@ -193,6 +193,17 @@ def write_report(rows, args):
                 f"- search_results: {len(session.get('search_results') or [])}",
                 "",
             ]
+            if session.get("search_results"):
+                price_ceiling = (session.get("parsed") or {}).get("max_price")
+                lines += [
+                    "- returned listing prices: "
+                    + "; ".join(
+                        f"{listing.get('title')}=${listing.get('price')}"
+                        for listing in session["search_results"]
+                    ),
+                    f"- requested max_price: {price_ceiling}",
+                    "",
+                ]
             if session.get("outfit_suggestion"):
                 lines += ["Outfit suggestion:", "", "```",
                           str(session["outfit_suggestion"]), "```", ""]
